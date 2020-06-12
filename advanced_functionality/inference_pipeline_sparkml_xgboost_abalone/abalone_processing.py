@@ -11,10 +11,11 @@ import boto3
 from awsglue.utils import getResolvedOptions
 
 import pyspark
+import mleap.pyspark
 from pyspark.sql import SparkSession
 from pyspark.ml import Pipeline
 from pyspark.sql.types import StructField, StructType, StringType, DoubleType
-from pyspark.ml.feature import StringIndexer, VectorIndexer, OneHotEncoder, VectorAssembler
+from pyspark.ml.feature import StringIndexer, VectorIndexer, OneHotEncoderEstimator, VectorAssembler
 from pyspark.sql.functions import *
 from mleap.pyspark.spark_support import SimpleSparkSerializer
 
@@ -57,7 +58,7 @@ def main():
     sex_indexer = StringIndexer(inputCol="sex", outputCol="indexed_sex")
     
     #one-hot-encoding is being performed on the string-indexed sex column (indexed_sex)
-    sex_encoder = OneHotEncoder(inputCol="indexed_sex", outputCol="sex_vec")
+    sex_encoder = OneHotEncoderEstimator(inputCols=["indexed_sex"], outputCols=["sex_vec"])
 
     #vector-assembler will bring all the features to a 1D vector for us to save easily into CSV format
     assembler = VectorAssembler(inputCols=["sex_vec", 
@@ -93,7 +94,7 @@ def main():
     validation_lines.saveAsTextFile('s3://' + os.path.join(args['S3_OUTPUT_BUCKET'], args['S3_OUTPUT_KEY_PREFIX'], 'validation'))
 
     # Serialize and store the model via MLeap  
-    SimpleSparkSerializer().serializeToBundle(model, "jar:file:/tmp/model.zip", validation_df)
+    model.serializeToBundle("jar:file:/tmp/model.zip", validation_df)
 
     # Unzip the model as SageMaker expects a .tar.gz file but MLeap produces a .zip file
     import zipfile
